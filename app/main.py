@@ -36,8 +36,6 @@ app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 
 @app.get("/api/galleries/{gallery_name}")
 async def get_gallery(gallery_name: str):
-    await asyncio.sleep(5)  # simulate slow network / DB
-
     folder = MEDIA_ROOT / gallery_name
 
     if not folder.exists() or not folder.is_dir():
