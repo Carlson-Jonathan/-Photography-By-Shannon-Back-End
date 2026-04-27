@@ -1,10 +1,16 @@
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, EmailStr
 from pathlib import Path
-import asyncio
+import smtplib
+from email.message import EmailMessage
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 app = FastAPI()
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 MEDIA_DIR = BASE_DIR / "media"
 MEDIA_ROOT = BASE_DIR / "media" / "galleries"
@@ -24,6 +30,51 @@ app.add_middleware(
 )
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# CONTACT FORM
+
+class ContactMessage(BaseModel):
+    name: str
+    email: EmailStr
+    message: str
+
+
+EMAIL_TO = "JonathanCarlson3712@Hotmail.com"
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+SMTP_USERNAME = os.getenv("SMTP_USERNAME")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+
+@app.post("/api/contact")
+async def submit_contact(msg: ContactMessage):
+
+    email = EmailMessage()
+    email["Subject"] = f"Website Contact - {msg.name}"
+    email["From"] = SMTP_USERNAME
+    email["To"] = EMAIL_TO
+
+    email.set_content(
+        f"""
+Name: {msg.name}
+Email: {msg.email}
+
+Message:
+{msg.message}
+"""
+    )
+
+    try:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as smtp:
+            smtp.starttls()
+            smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
+            smtp.send_message(email)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {"status": "sent"}
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 @app.get("/api/galleries")
 def get_galleries():
@@ -32,7 +83,9 @@ def get_galleries():
         {"id": "portraits", "title": "Portraits"}
     ]
 
+
 app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
+
 
 @app.get("/api/galleries/{gallery_name}")
 async def get_gallery(gallery_name: str):
