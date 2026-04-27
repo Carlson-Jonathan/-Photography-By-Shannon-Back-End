@@ -9,13 +9,14 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+
 app = FastAPI()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 MEDIA_DIR = BASE_DIR / "media"
 MEDIA_ROOT = BASE_DIR / "media" / "galleries"
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,28 +30,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # CONTACT FORM
 
 class ContactMessage(BaseModel):
     name: str
     email: EmailStr
     message: str
+    website: str | None = None   # 🐝 honeypot field
 
 
 EMAIL_TO = "JonathanCarlson3712@Hotmail.com"
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 SMTP_USERNAME = os.getenv("SMTP_USERNAME")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+SMTP_PASSWORD = (os.getenv("SMTP_PASSWORD") or "").replace(" ", "")
+
 
 @app.post("/api/contact")
 async def submit_contact(msg: ContactMessage):
+
+    # 🐝 Honeypot check (bot detection)
+    if msg.website:
+        return {"status": "sent"}  # silently ignore bots
 
     email = EmailMessage()
     email["Subject"] = f"Website Contact - {msg.name}"
     email["From"] = SMTP_USERNAME
     email["To"] = EMAIL_TO
+    email["Reply-To"] = msg.email
 
     email.set_content(
         f"""
@@ -74,7 +82,10 @@ Message:
     return {"status": "sent"}
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
+
 
 @app.get("/api/galleries")
 def get_galleries():
@@ -82,9 +93,6 @@ def get_galleries():
         {"id": "weddings", "title": "Weddings"},
         {"id": "portraits", "title": "Portraits"}
     ]
-
-
-app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 
 
 @app.get("/api/galleries/{gallery_name}")
