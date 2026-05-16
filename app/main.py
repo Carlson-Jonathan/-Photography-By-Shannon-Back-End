@@ -95,7 +95,7 @@ def get_galleries():
     ]
 
 
-@app.get("/api/galleries/{gallery_name}")
+@app.get("/api/galleries/{gallery_name:path}")
 async def get_gallery(gallery_name: str):
     folder = MEDIA_ROOT / gallery_name
 
